@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux Image Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #ffffff;
+        }
+        h1 {
+            color: #ffffff;
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.1);
+            color: #ffffff;
+            border: none;
+            transition: all 0.3s ease;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .tab:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .tab.active {
+            background: rgba(255,255,255,0.9);
+            color: #1e3c72;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            color: #333;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        h2 {
+            color: #1e3c72;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+        .row {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        .column {
+            flex: 1;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1e3c72;
+        }
+        textarea, input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        textarea:focus, input[type="file"]:focus {
+            outline: none;
+            border-color: #1e3c72;
+        }
+        button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+        button:hover {
+            background: linear-gradient(45deg, #45a049, #3d8b40);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+        .result-container {
+            margin-top: 25px;
+        }
+        .image-container {
+            max-width: 100%;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #e74c3c;
+        }
+        .loading {
+            margin-top: 25px;
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .spinner {
+            border: 4px solid rgba(52, 152, 219, 0.2);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border-left-color: #3498db;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-text {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+            font-style: italic;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.9em;
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+        }
+    </style>
+</head>
+<body>
+    <h1>Flux Image Generator</h1>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="generate">生成新图片</div>
+        <div class="tab" data-tab="edit">编辑图片</div>
+    </div>
+
+    <!-- 生成新图片 -->
+    <div id="generate" class="tab-content active">
+        <h2>生成新图片</h2>
+        <div class="row">
+            <div class="column">
+                <label for="generate-prompt">图片描述:</label>
+                <textarea id="generate-prompt" placeholder="描述您想要生成的图片"></textarea>
+                <button id="generate-button">生成图片</button>
+                <div id="generate-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>正在生成中...</p>
+                </div>
+            </div>
+            <div class="column">
+                <div id="generate-result" class="result-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑图片 -->
+    <div id="edit" class="tab-content">
+        <h2>编辑图片</h2>
+        <div class="row">
+            <div class="column">
+                <label for="edit-image">上传要编辑的图片:</label>
+                <input type="file" id="edit-image" accept="image/jpeg, image/png">
+                <div id="edit-preview" class="image-container"></div>
+            </div>
+            <div class="column">
+                <label for="edit-prompt">编辑提示:</label>
+                <textarea id="edit-prompt" placeholder="描述您想要对图片进行的修改"></textarea>
+                <button id="edit-button">编辑图片</button>
+                <div id="edit-loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>正在编辑中...</p>
+                </div>
+                <div id="edit-result" class="result-container"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // 标签页切换
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // 移除所有活动状态
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                // 设置当前标签页为活动状态
+                tab.classList.add('active');
+                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
+            });
+        });
+
+        // 图片预览函数
+        function previewImage(input, previewId) {
+            const preview = document.getElementById(previewId);
+            preview.innerHTML = '';
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    preview.appendChild(img);
+                }
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // 设置图片预览
+        document.getElementById('edit-image').addEventListener('change', function() {
+            previewImage(this, 'edit-preview');
+        });
+
+        // 图片编辑功能
+        document.getElementById('edit-button').addEventListener('click', async () => {
+            const imageInput = document.getElementById('edit-image');
+            const prompt = document.getElementById('edit-prompt').value;
+            const resultContainer = document.getElementById('edit-result');
+            const loadingElement = document.getElementById('edit-loading');
+
+            resultContainer.innerHTML = '';
+
+            if (!imageInput.files || imageInput.files.length === 0) {
+                resultContainer.innerHTML = '<p class="error">请上传图片</p>';
+                return;
+            }
+
+            if (!prompt) {
+                resultContainer.innerHTML = '<p class="error">请提供编辑提示</p>';
+                return;
+            }
+
+            // 显示加载动画
+            loadingElement.style.display = 'block';
+            loadingElement.innerHTML = `
+                <div class="spinner"></div>
+                <p>正在编辑中...</p>
+                <p class="progress-text">正在提交请求...</p>
+            `;
+
+            try {
+                const formData = new FormData();
+                formData.append('image', imageInput.files[0]);
+                formData.append('prompt', prompt);
+
+                const response = await fetch('/api/edit-image', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.request_id) {
+                    // 开始轮询
+                    const pollUrl = data.poll_url.startsWith('http') ? 
+                        `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` : 
+                        data.poll_url;
+                    await pollForResult(data.request_id, pollUrl, loadingElement, resultContainer, 'edit');
+                } else {
+                    loadingElement.style.display = 'none';
+                    const errorMsg = data.error || '编辑图片失败';
+                    const timestamp = data.timestamp ? `<br><small>时间: ${new Date(data.timestamp).toLocaleString()}</small>` : '';
+                    
+                    // 构建详细错误信息
+                    let detailsHtml = '';
+                    if (data.details) {
+                        detailsHtml = `
+                            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                <strong>网络错误详情:</strong><br>
+                                <strong>错误类型:</strong> ${data.details.errorType}<br>
+                                <strong>错误代码:</strong> ${data.details.errorCode}<br>
+                                <strong>目标主机:</strong> ${data.details.host}<br>
+                                <strong>重试次数:</strong> ${data.details.retryCount}<br>
+                                <strong>错误消息:</strong> ${data.details.errorMessage}
+                            </div>
+                        `;
+                    }
+                    
+                    resultContainer.innerHTML = `
+                        <div class="error">
+                            <strong>错误详情:</strong><br>
+                            ${errorMsg}
+                            ${timestamp}
+                            ${detailsHtml}
+                            <details style="margin-top: 10px;">
+                                <summary>完整技术详情 (点击展开)</summary>
+                                <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('编辑图片时出错:', error);
+                loadingElement.style.display = 'none';
+                resultContainer.innerHTML = `<p class="error">编辑图片时出错: ${error.message}</p>`;
+            }
+        });
+
+
+        // 生成新图片功能
+        document.getElementById('generate-button').addEventListener('click', async () => {
+            const prompt = document.getElementById('generate-prompt').value;
+            const resultContainer = document.getElementById('generate-result');
+            const loadingElement = document.getElementById('generate-loading');
+
+            resultContainer.innerHTML = '';
+
+            if (!prompt) {
+                resultContainer.innerHTML = '<p class="error">请提供图片描述</p>';
+                return;
+            }
+
+            // 显示加载动画
+            loadingElement.style.display = 'block';
+            loadingElement.innerHTML = `
+                <div class="spinner"></div>
+                <p>正在生成中...</p>
+                <p class="progress-text">正在提交请求...</p>
+            `;
+
+            try {
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.request_id) {
+                    // 开始轮询
+                    const pollUrl = data.poll_url.startsWith('http') ? 
+                        `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` : 
+                        data.poll_url;
+                    await pollForResult(data.request_id, pollUrl, loadingElement, resultContainer, 'generate');
+                } else {
+                    loadingElement.style.display = 'none';
+                    const errorMsg = data.error || '生成图片失败';
+                    const timestamp = data.timestamp ? `<br><small>时间: ${new Date(data.timestamp).toLocaleString()}</small>` : '';
+                    
+                    // 构建详细错误信息
+                    let detailsHtml = '';
+                    if (data.details) {
+                        detailsHtml = `
+                            <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
+                                <strong>网络错误详情:</strong><br>
+                                <strong>错误类型:</strong> ${data.details.errorType}<br>
+                                <strong>错误代码:</strong> ${data.details.errorCode}<br>
+                                <strong>目标主机:</strong> ${data.details.host}<br>
+                                <strong>重试次数:</strong> ${data.details.retryCount}<br>
+                                <strong>错误消息:</strong> ${data.details.errorMessage}
+                            </div>
+                        `;
+                    }
+                    
+                    resultContainer.innerHTML = `
+                        <div class="error">
+                            <strong>错误详情:</strong><br>
+                            ${errorMsg}
+                            ${timestamp}
+                            ${detailsHtml}
+                            <details style="margin-top: 10px;">
+                                <summary>完整技术详情 (点击展开)</summary>
+                                <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('生成图片时出错:', error);
+                loadingElement.style.display = 'none';
+                resultContainer.innerHTML = `<p class="error">生成图片时出错: ${error.message}</p>`;
+            }
+        });
+
+        // 轮询函数，用于检查任务状态
+        async function pollForResult(requestId, pollUrl, loadingElement, resultContainer, type) {
+            let pollCount = 0;
+            const maxPolls = 60; // 最多轮询60次（5分钟）
+            
+            const poll = async () => {
+                try {
+                    pollCount++;
+                    
+                    // 更新进度提示
+                    const progressText = loadingElement.querySelector('.progress-text');
+                    if (progressText) {
+                        progressText.textContent = `正在处理中... (${pollCount}/${maxPolls})`;
+                    }
+                    
+                    const response = await fetch(pollUrl);
+                    const data = await response.json();
+                    
+                    if (data.status === 'Ready' && data.result && data.result.sample) {
+                        // 任务完成
+                        loadingElement.style.display = 'none';
+                        const imageUrl = data.result.sample;
+                        const downloadName = type === 'generate' ? 'generated-image.jpg' : 'edited-image.jpg';
+                        
+                        resultContainer.innerHTML = `
+                            <div class="image-container">
+                                <img src="${imageUrl}" alt="${type === 'generate' ? '生成的' : '编辑的'}图片">
+                            </div>
+                            <p>图片${type === 'generate' ? '生成' : '编辑'}成功</p>
+                            <button id="${type}-download">下载图片</button>
+                        `;
+                        
+                        document.getElementById(`${type}-download`).addEventListener('click', () => {
+                            const a = document.createElement('a');
+                            a.href = imageUrl;
+                            a.download = downloadName;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        });
+                        
+                    } else if (data.status === 'Error') {
+                        // 任务失败
+                        loadingElement.style.display = 'none';
+                        const errorMsg = data.error || '未知错误';
+                        resultContainer.innerHTML = `
+                            <div class="error">
+                                <strong>处理失败:</strong><br>
+                                ${errorMsg}
+                                <details style="margin-top: 10px;">
+                                    <summary>API响应详情 (点击展开)</summary>
+                                    <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                                </details>
+                            </div>
+                        `;
+                        
+                    } else if (pollCount >= maxPolls) {
+                        // 超时
+                        loadingElement.style.display = 'none';
+                        resultContainer.innerHTML = '<p class="error">处理超时，请稍后重试</p>';
+                        
+                    } else {
+                        // 继续轮询
+                        setTimeout(poll, 5000); // 5秒后再次轮询
+                    }
+                    
+                } catch (error) {
+                    console.error('轮询时出错:', error);
+                    if (pollCount >= maxPolls) {
+                        loadingElement.style.display = 'none';
+                        resultContainer.innerHTML = `<p class="error">轮询失败: ${error.message}</p>`;
+                    } else {
+                        setTimeout(poll, 5000); // 出错后继续重试
+                    }
+                }
+            };
+            
+            // 开始轮询
+            poll();
+        }
+    </script>
+</body>
+</html>
