@@ -525,20 +525,54 @@
         // 轮询函数，用于检查任务状态
         async function pollForResult(requestId, pollUrl, loadingElement, resultContainer, type) {
             let pollCount = 0;
-            const maxPolls = 60; // 最多轮询60次（5分钟）
+            const maxPolls = 120; // 最多轮询120次（10分钟），匹配URL过期时间
+            const startTime = Date.now();
 
             const poll = async () => {
                 try {
                     pollCount++;
+                    const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
 
                     // 更新进度提示
                     const progressText = loadingElement.querySelector('.progress-text');
                     if (progressText) {
-                        progressText.textContent = `正在处理中... (${pollCount}/${maxPolls})`;
+                        progressText.textContent = `正在处理中... (${pollCount}/${maxPolls}) - ${elapsedMinutes}分钟`;
+                    }
+                    
+                    // 检查是否接近10分钟限制
+                    if (elapsedMinutes >= 9) {
+                        loadingElement.style.display = 'none';
+                        resultContainer.innerHTML = `
+                            <div class="error">
+                                <strong>即将超时:</strong><br>
+                                Flux API的URL有10分钟有效期限制，即将过期。
+                                <br><br>
+                                <button onclick="location.reload()">刷新页面重试</button>
+                            </div>
+                        `;
+                        return;
                     }
 
                     const response = await fetch(pollUrl);
                     const data = await response.json();
+                    
+                    // 检查URL过期
+                    if (data.expired || response.status === 404 || response.status === 403) {
+                        loadingElement.style.display = 'none';
+                        resultContainer.innerHTML = `
+                            <div class="error">
+                                <strong>URL已过期:</strong><br>
+                                ${data.message || 'Flux API的轮询URL已过期（10分钟限制）'}
+                                <br><br>
+                                <button onclick="location.reload()">刷新页面重新生成</button>
+                                <details style="margin-top: 10px;">
+                                    <summary>技术详情 (点击展开)</summary>
+                                    <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                                </details>
+                            </div>
+                        `;
+                        return;
+                    }
 
                     if (data.status === 'Ready' && data.result && data.result.sample) {
                         // 任务完成
@@ -550,7 +584,7 @@
                             <div class="image-container">
                                 <img src="${imageUrl}" alt="${type === 'generate' ? '生成的' : '编辑的'}图片">
                             </div>
-                            <p>图片${type === 'generate' ? '生成' : '编辑'}成功</p>
+                            <p>图片${type === 'generate' ? '生成' : '编辑'}成功 (用时${elapsedMinutes}分钟)</p>
                             <button id="${type}-download">下载图片</button>
                         `;
 
@@ -581,21 +615,32 @@
                     } else if (pollCount >= maxPolls) {
                         // 超时
                         loadingElement.style.display = 'none';
-                        resultContainer.innerHTML = '<p class="error">处理超时，请稍后重试</p>';
+                        resultContainer.innerHTML = `
+                            <div class="error">
+                                <strong>处理超时:</strong><br>
+                                已轮询10分钟，URL可能已过期
+                                <br><br>
+                                <button onclick="location.reload()">刷新页面重试</button>
+                            </div>
+                        `;
 
                     } else {
-                        // 继续轮询
-                        setTimeout(poll, 5000); // 5秒后再次轮询
+                        // 继续轮询 - 根据时间调整间隔
+                        const interval = elapsedMinutes >= 5 ? 3000 : 5000; // 5分钟后更频繁轮询
+                        setTimeout(poll, interval);
                     }
 
                 } catch (error) {
                     console.error('轮询时出错:', error);
-                    if (pollCount >= maxPolls) {
-                        loadingElement.style.display = 'none';
-                        resultContainer.innerHTML = `<p class="error">轮询失败: ${error.message}</p>`;
-                    } else {
-                        setTimeout(poll, 5000); // 出错后继续重试
-                    }
+                    loadingElement.style.display = 'none';
+                    resultContainer.innerHTML = `
+                        <div class="error">
+                            <strong>轮询出错:</strong><br>
+                            ${error.message}
+                            <br><br>
+                            <button onclick="location.reload()">刷新页面重试</button>
+                        </div>
+                    `;
                 }
             };
 

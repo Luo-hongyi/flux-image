@@ -307,6 +307,7 @@ app.get('/api/poll/*', async (req, res) => {
 
     // 获取完整的轮询URL路径
     const pollUrl = req.query.url || `${FLUX_API_BASE}/get_result?id=${pollPath}`;
+    console.log(`轮询API: ${pollUrl}`);
 
     // 调用 Flux API 获取结果
     const response = await fetch(pollUrl, {
@@ -317,16 +318,29 @@ app.get('/api/poll/*', async (req, res) => {
     });
 
     const data = await response.json();
+    console.log(`轮询响应 (${response.status}):`, JSON.stringify(data, null, 2));
 
     if (response.ok) {
       res.json(data);
     } else {
-      res.status(response.status).json(data);
+      // 检查是否是URL过期错误
+      if (response.status === 404 || response.status === 403) {
+        res.status(response.status).json({
+          ...data,
+          expired: true,
+          message: '轮询URL已过期（10分钟限制）或任务不存在'
+        });
+      } else {
+        res.status(response.status).json(data);
+      }
     }
 
   } catch (error) {
     console.error('轮询结果时出错:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      expired: error.code === 'ECONNRESET' || error.code === 'ENOTFOUND'
+    });
   }
 });
 
