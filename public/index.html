@@ -532,12 +532,12 @@
             const poll = async () => {
                 try {
                     pollCount++;
-                    const elapsedMinutes = Math.floor((Date.now() - startTime) / 60000);
+                    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
 
                     // 更新进度提示
                     const progressText = loadingElement.querySelector('.progress-text');
                     if (progressText) {
-                        progressText.textContent = `正在处理中... (${pollCount}/${maxPolls}) - ${elapsedMinutes}分钟`;
+                        progressText.textContent = `正在处理中... (${pollCount}/${maxPolls}) - ${elapsedSeconds}秒`;
                     }
                     
                     // 1分30秒内不需要预警，直接到超时处理
@@ -610,7 +610,7 @@
                             <div class="image-container">
                                 <img src="${imageUrl}" alt="${type === 'generate' ? '生成的' : '编辑的'}图片">
                             </div>
-                            <p>图片${type === 'generate' ? '生成' : '编辑'}成功 (用时${elapsedMinutes}分钟)</p>
+                            <p>图片${type === 'generate' ? '生成' : '编辑'}成功 (用时${elapsedSeconds}秒)</p>
                             <button id="${type}-download">下载图片</button>
                         `;
 
@@ -666,7 +666,7 @@
                                             data.status === 'Task Started' ? '开始处理' :
                                             data.status === 'In Progress' ? '处理中' :
                                             data.status;
-                            progressText.textContent = `${statusMsg}... (${pollCount}/${maxPolls}) - ${elapsedMinutes}分钟`;
+                            progressText.textContent = `${statusMsg}... (${pollCount}/${maxPolls}) - ${elapsedSeconds}秒`;
                             
                             // 如果有进度信息，也显示出来
                             if (data.progress && typeof data.progress === 'number') {
