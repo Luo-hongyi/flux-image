@@ -573,7 +573,7 @@
                         return;
                     }
 
-                    if (data.status === 'Request Moderated') {
+                    if (data.status === 'Request Moderated' || data.status === 'Content Moderated') {
                         // 内容审核失败
                         loadingElement.style.display = 'none';
                         const reasons = data.details?.['Moderation Reasons'] || ['未知原因'];
