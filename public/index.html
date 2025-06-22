@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flux Image Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flux Kontext Playground</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -70,6 +70,103 @@
         }
         .column {
             flex: 1;
+        }
+
+        /* 响应式设计 - 手机端 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                max-width: 100%;
+            }
+
+            h1 {
+                font-size: 2em;
+                margin-bottom: 20px;
+            }
+
+            .tabs {
+                margin-bottom: 20px;
+            }
+
+            .tab {
+                padding: 12px 20px;
+                font-size: 1em;
+            }
+
+            .tab-content {
+                padding: 20px;
+            }
+
+            .row {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .column {
+                width: 100%;
+            }
+
+            textarea {
+                height: 100px;
+            }
+
+            .image-container {
+                text-align: center;
+            }
+
+            .image-container img {
+                max-width: 100%;
+                height: auto;
+            }
+
+            /* 手机端按钮优化 */
+            button {
+                width: 100%;
+                padding: 15px;
+                font-size: 16px;
+                margin-top: 15px;
+            }
+
+            /* 手机端错误信息优化 */
+            .error {
+                font-size: 14px;
+                padding: 15px;
+                margin-top: 15px;
+            }
+
+            /* 手机端加载动画优化 */
+            .loading {
+                padding: 15px;
+                margin-top: 20px;
+            }
+
+            .spinner {
+                width: 35px;
+                height: 35px;
+            }
+
+            /* 手机端文件选择优化 */
+            input[type="file"] {
+                padding: 12px;
+                font-size: 16px;
+            }
+
+            /* 防止手机端输入框缩放 */
+            textarea, input[type="file"] {
+                font-size: 16px !important;
+            }
+        }
+
+        /* 平板端优化 */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            body {
+                max-width: 95%;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 2.2em;
+            }
         }
         label {
             display: block;
@@ -175,7 +272,7 @@
     </style>
 </head>
 <body>
-    <h1>Flux Image Generator</h1>
+    <h1>Flux Kontext</h1>
 
     <div class="tabs">
         <div class="tab active" data-tab="generate">生成新图片</div>
@@ -302,15 +399,15 @@
 
                 if (data.success && data.request_id) {
                     // 开始轮询
-                    const pollUrl = data.poll_url.startsWith('http') ? 
-                        `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` : 
+                    const pollUrl = data.poll_url.startsWith('http') ?
+                        `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` :
                         data.poll_url;
                     await pollForResult(data.request_id, pollUrl, loadingElement, resultContainer, 'edit');
                 } else {
                     loadingElement.style.display = 'none';
                     const errorMsg = data.error || '编辑图片失败';
                     const timestamp = data.timestamp ? `<br><small>时间: ${new Date(data.timestamp).toLocaleString()}</small>` : '';
-                    
+
                     // 构建详细错误信息
                     let detailsHtml = '';
                     if (data.details) {
@@ -325,7 +422,7 @@
                             </div>
                         `;
                     }
-                    
+
                     resultContainer.innerHTML = `
                         <div class="error">
                             <strong>错误详情:</strong><br>
@@ -381,15 +478,15 @@
 
                 if (data.success && data.request_id) {
                     // 开始轮询
-                    const pollUrl = data.poll_url.startsWith('http') ? 
-                        `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` : 
+                    const pollUrl = data.poll_url.startsWith('http') ?
+                        `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` :
                         data.poll_url;
                     await pollForResult(data.request_id, pollUrl, loadingElement, resultContainer, 'generate');
                 } else {
                     loadingElement.style.display = 'none';
                     const errorMsg = data.error || '生成图片失败';
                     const timestamp = data.timestamp ? `<br><small>时间: ${new Date(data.timestamp).toLocaleString()}</small>` : '';
-                    
+
                     // 构建详细错误信息
                     let detailsHtml = '';
                     if (data.details) {
@@ -404,7 +501,7 @@
                             </div>
                         `;
                     }
-                    
+
                     resultContainer.innerHTML = `
                         <div class="error">
                             <strong>错误详情:</strong><br>
@@ -429,26 +526,26 @@
         async function pollForResult(requestId, pollUrl, loadingElement, resultContainer, type) {
             let pollCount = 0;
             const maxPolls = 60; // 最多轮询60次（5分钟）
-            
+
             const poll = async () => {
                 try {
                     pollCount++;
-                    
+
                     // 更新进度提示
                     const progressText = loadingElement.querySelector('.progress-text');
                     if (progressText) {
                         progressText.textContent = `正在处理中... (${pollCount}/${maxPolls})`;
                     }
-                    
+
                     const response = await fetch(pollUrl);
                     const data = await response.json();
-                    
+
                     if (data.status === 'Ready' && data.result && data.result.sample) {
                         // 任务完成
                         loadingElement.style.display = 'none';
                         const imageUrl = data.result.sample;
                         const downloadName = type === 'generate' ? 'generated-image.jpg' : 'edited-image.jpg';
-                        
+
                         resultContainer.innerHTML = `
                             <div class="image-container">
                                 <img src="${imageUrl}" alt="${type === 'generate' ? '生成的' : '编辑的'}图片">
@@ -456,7 +553,7 @@
                             <p>图片${type === 'generate' ? '生成' : '编辑'}成功</p>
                             <button id="${type}-download">下载图片</button>
                         `;
-                        
+
                         document.getElementById(`${type}-download`).addEventListener('click', () => {
                             const a = document.createElement('a');
                             a.href = imageUrl;
@@ -465,7 +562,7 @@
                             a.click();
                             document.body.removeChild(a);
                         });
-                        
+
                     } else if (data.status === 'Error') {
                         // 任务失败
                         loadingElement.style.display = 'none';
@@ -480,17 +577,17 @@
                                 </details>
                             </div>
                         `;
-                        
+
                     } else if (pollCount >= maxPolls) {
                         // 超时
                         loadingElement.style.display = 'none';
                         resultContainer.innerHTML = '<p class="error">处理超时，请稍后重试</p>';
-                        
+
                     } else {
                         // 继续轮询
                         setTimeout(poll, 5000); // 5秒后再次轮询
                     }
-                    
+
                 } catch (error) {
                     console.error('轮询时出错:', error);
                     if (pollCount >= maxPolls) {
@@ -501,7 +598,7 @@
                     }
                 }
             };
-            
+
             // 开始轮询
             poll();
         }
