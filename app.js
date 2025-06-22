@@ -323,16 +323,46 @@ app.get('/api/poll/*', async (req, res) => {
     if (response.ok) {
       res.json(data);
     } else {
-      // 检查是否是URL过期错误
-      if (response.status === 404 || response.status === 403) {
-        res.status(response.status).json({
-          ...data,
-          expired: true,
-          message: '轮询URL已过期（10分钟限制）或任务不存在'
-        });
-      } else {
-        res.status(response.status).json(data);
+      // 根据HTTP状态码提供详细错误信息
+      let errorMessage = '';
+      let expired = false;
+      
+      switch (response.status) {
+        case 401:
+          errorMessage = 'API密钥无效或已过期';
+          break;
+        case 402:
+          errorMessage = 'API配额不足，请检查账户余额';
+          break;
+        case 403:
+          errorMessage = '访问被拒绝，可能是权限不足或API密钥问题';
+          expired = true;
+          break;
+        case 404:
+          errorMessage = '轮询URL已过期（10分钟限制）或任务不存在';
+          expired = true;
+          break;
+        case 429:
+          errorMessage = 'API请求频率过高，请稍后重试';
+          break;
+        case 500:
+          errorMessage = 'Flux服务器内部错误';
+          break;
+        case 502:
+        case 503:
+        case 504:
+          errorMessage = 'Flux服务器暂时不可用，请稍后重试';
+          break;
+        default:
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       }
+      
+      res.status(response.status).json({
+        ...data,
+        expired,
+        message: errorMessage,
+        httpStatus: response.status
+      });
     }
 
   } catch (error) {

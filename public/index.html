@@ -556,15 +556,25 @@
                     const response = await fetch(pollUrl);
                     const data = await response.json();
                     
-                    // 检查URL过期
-                    if (data.expired || response.status === 404 || response.status === 403) {
+                    // 检查HTTP错误状态
+                    if (!response.ok || data.expired) {
                         loadingElement.style.display = 'none';
+                        const isExpired = data.expired || response.status === 404 || response.status === 403;
+                        const statusCode = response.status || data.httpStatus;
+                        
+                        let errorTitle = isExpired ? 'URL已过期' : 'API错误';
+                        let actionButton = isExpired ? 
+                            '<button onclick="location.reload()">刷新页面重新生成</button>' :
+                            statusCode === 429 ? '<button onclick="setTimeout(() => location.reload(), 30000)">30秒后重试</button>' :
+                            statusCode === 402 ? '<a href="https://api.bfl.ai/" target="_blank" style="display: inline-block; padding: 10px 15px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">查看API配额</a>' :
+                            '<button onclick="location.reload()">刷新页面重试</button>';
+                            
                         resultContainer.innerHTML = `
                             <div class="error">
-                                <strong>URL已过期:</strong><br>
-                                ${data.message || 'Flux API的轮询URL已过期（10分钟限制）'}
+                                <strong>${errorTitle} (${statusCode}):</strong><br>
+                                ${data.message || '请求失败'}
                                 <br><br>
-                                <button onclick="location.reload()">刷新页面重新生成</button>
+                                ${actionButton}
                                 <details style="margin-top: 10px;">
                                     <summary>技术详情 (点击展开)</summary>
                                     <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
@@ -574,7 +584,34 @@
                         return;
                     }
 
-                    if (data.status === 'Ready' && data.result && data.result.sample) {
+                    if (data.status === 'Request Moderated') {
+                        // 内容审核失败
+                        loadingElement.style.display = 'none';
+                        const reasons = data.details?.['Moderation Reasons'] || ['未知原因'];
+                        const reasonText = reasons.join(', ');
+                        resultContainer.innerHTML = `
+                            <div class="error">
+                                <strong>内容审核失败:</strong><br>
+                                您的请求被Flux内容审核系统拦截
+                                <br><br>
+                                <strong>拦截原因:</strong> ${reasonText}
+                                <br><br>
+                                <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                    <strong>常见拦截原因说明:</strong><br>
+                                    • <strong>Derivative Works Filter:</strong> 涉及版权内容、知名角色或品牌<br>
+                                    • <strong>NSFW Filter:</strong> 成人内容过滤<br>
+                                    • <strong>Violence Filter:</strong> 暴力内容过滤<br>
+                                    • <strong>Hate Speech Filter:</strong> 仇恨言论过滤
+                                </div>
+                                <strong>建议:</strong> 请修改提示词，避免使用版权角色名、品牌名或敏感内容
+                                <details style="margin-top: 10px;">
+                                    <summary>完整审核响应 (点击展开)</summary>
+                                    <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                                </details>
+                            </div>
+                        `;
+                        return;
+                    } else if (data.status === 'Ready' && data.result && data.result.sample) {
                         // 任务完成
                         loadingElement.style.display = 'none';
                         const imageUrl = data.result.sample;
@@ -597,14 +634,16 @@
                             document.body.removeChild(a);
                         });
 
-                    } else if (data.status === 'Error') {
+                    } else if (data.status === 'Error' || data.status === 'Failed') {
                         // 任务失败
                         loadingElement.style.display = 'none';
-                        const errorMsg = data.error || '未知错误';
+                        const errorMsg = data.error || data.message || '处理失败';
                         resultContainer.innerHTML = `
                             <div class="error">
                                 <strong>处理失败:</strong><br>
                                 ${errorMsg}
+                                <br><br>
+                                <strong>状态:</strong> ${data.status}
                                 <details style="margin-top: 10px;">
                                     <summary>API响应详情 (点击展开)</summary>
                                     <pre style="font-size: 12px; margin-top: 5px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
@@ -625,6 +664,22 @@
                         `;
 
                     } else {
+                        // 显示当前状态（如果有的话）
+                        if (data.status && progressText) {
+                            const statusMsg = data.status === 'Pending' ? '排队中' : 
+                                            data.status === 'Processing' ? '处理中' : 
+                                            data.status === 'Task Accepted' ? '任务已接受' :
+                                            data.status === 'Task Started' ? '开始处理' :
+                                            data.status === 'In Progress' ? '处理中' :
+                                            data.status;
+                            progressText.textContent = `${statusMsg}... (${pollCount}/${maxPolls}) - ${elapsedMinutes}分钟`;
+                            
+                            // 如果有进度信息，也显示出来
+                            if (data.progress && typeof data.progress === 'number') {
+                                progressText.textContent += ` (${Math.round(data.progress * 100)}%)`;
+                            }
+                        }
+                        
                         // 继续轮询 - 根据时间调整间隔
                         const interval = elapsedMinutes >= 5 ? 3000 : 5000; // 5分钟后更频繁轮询
                         setTimeout(poll, interval);
