@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Flux Kontext Playground</title>
+    <link rel="icon" type="image/png" href="/icon.png">
+    <link rel="shortcut icon" type="image/png" href="/icon.png">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -192,6 +194,21 @@
             outline: none;
             border-color: #1e3c72;
         }
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            background-color: #ffffff;
+            margin-bottom: 15px;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        select:focus {
+            outline: none;
+            border-color: #1e3c72;
+        }
         button {
             background: linear-gradient(45deg, #4CAF50, #45a049);
             color: white;
@@ -286,6 +303,18 @@
             <div class="column">
                 <label for="generate-prompt">图片描述:</label>
                 <textarea id="generate-prompt" placeholder="描述您想要生成的图片"></textarea>
+                
+                <label for="generate-aspect-ratio">图片比例:</label>
+                <select id="generate-aspect-ratio">
+                    <option value="21:9">21:9 (超宽屏)</option>
+                    <option value="16:9">16:9 (宽屏)</option>
+                    <option value="4:3">4:3 (传统)</option>
+                    <option value="1:1" selected>1:1 (正方形)</option>
+                    <option value="3:4">3:4 (竖屏)</option>
+                    <option value="9:16">9:16 (手机竖屏)</option>
+                    <option value="16:21">16:21 (超高)</option>
+                </select>
+                
                 <button id="generate-button">生成图片</button>
                 <div id="generate-loading" class="loading">
                     <div class="spinner"></div>
@@ -310,6 +339,18 @@
             <div class="column">
                 <label for="edit-prompt">编辑提示:</label>
                 <textarea id="edit-prompt" placeholder="描述您想要对图片进行的修改"></textarea>
+                
+                <label for="edit-aspect-ratio">输出比例:</label>
+                <select id="edit-aspect-ratio">
+                    <option value="21:9">21:9 (超宽屏)</option>
+                    <option value="16:9">16:9 (宽屏)</option>
+                    <option value="4:3">4:3 (传统)</option>
+                    <option value="1:1" selected>1:1 (正方形)</option>
+                    <option value="3:4">3:4 (竖屏)</option>
+                    <option value="9:16">9:16 (手机竖屏)</option>
+                    <option value="16:21">16:21 (超高)</option>
+                </select>
+                
                 <button id="edit-button">编辑图片</button>
                 <div id="edit-loading" class="loading">
                     <div class="spinner"></div>
@@ -362,6 +403,7 @@
         document.getElementById('edit-button').addEventListener('click', async () => {
             const imageInput = document.getElementById('edit-image');
             const prompt = document.getElementById('edit-prompt').value;
+            const aspectRatio = document.getElementById('edit-aspect-ratio').value;
             const resultContainer = document.getElementById('edit-result');
             const loadingElement = document.getElementById('edit-loading');
 
@@ -389,6 +431,7 @@
                 const formData = new FormData();
                 formData.append('image', imageInput.files[0]);
                 formData.append('prompt', prompt);
+                formData.append('aspect_ratio', aspectRatio);
 
                 const response = await fetch('/api/edit-image', {
                     method: 'POST',
@@ -398,6 +441,16 @@
                 const data = await response.json();
 
                 if (data.success && data.request_id) {
+                    // 如果是测试模式，更新loading提示
+                    if (data.test_mode) {
+                        loadingElement.innerHTML = `
+                            <div class="test-mode-indicator" style="background: #ff9800; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold;">🧪 测试模式 - 未调用真实API</div>
+                            <div class="spinner"></div>
+                            <p>正在编辑中...</p>
+                            <p class="progress-text">模拟处理中...</p>
+                        `;
+                    }
+                    
                     // 开始轮询
                     const pollUrl = data.poll_url.startsWith('http') ?
                         `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` :
@@ -447,6 +500,7 @@
         // 生成新图片功能
         document.getElementById('generate-button').addEventListener('click', async () => {
             const prompt = document.getElementById('generate-prompt').value;
+            const aspectRatio = document.getElementById('generate-aspect-ratio').value;
             const resultContainer = document.getElementById('generate-result');
             const loadingElement = document.getElementById('generate-loading');
 
@@ -471,12 +525,22 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ prompt })
+                    body: JSON.stringify({ prompt, aspect_ratio: aspectRatio })
                 });
 
                 const data = await response.json();
 
                 if (data.success && data.request_id) {
+                    // 如果是测试模式，更新loading提示
+                    if (data.test_mode) {
+                        loadingElement.innerHTML = `
+                            <div class="test-mode-indicator" style="background: #ff9800; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold;">🧪 测试模式 - 未调用真实API</div>
+                            <div class="spinner"></div>
+                            <p>正在生成中...</p>
+                            <p class="progress-text">模拟处理中...</p>
+                        `;
+                    }
+                    
                     // 开始轮询
                     const pollUrl = data.poll_url.startsWith('http') ?
                         `/api/poll/proxy?url=${encodeURIComponent(data.poll_url)}` :
@@ -606,11 +670,17 @@
                         const imageUrl = data.result.sample;
                         const downloadName = type === 'generate' ? 'generated-image.jpg' : 'edited-image.jpg';
 
+                        const testModeIndicator = data.test_mode ? 
+                            '<div class="test-mode-indicator" style="background: #ff9800; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold;">🧪 测试模式 - 未调用真实API</div>' : '';
+                        
+                        const statusMessage = data.message || `图片${type === 'generate' ? '生成' : '编辑'}成功`;
+                        
                         resultContainer.innerHTML = `
+                            ${testModeIndicator}
                             <div class="image-container">
                                 <img src="${imageUrl}" alt="${type === 'generate' ? '生成的' : '编辑的'}图片">
                             </div>
-                            <p>图片${type === 'generate' ? '生成' : '编辑'}成功 (用时${elapsedSeconds}秒)</p>
+                            <p>${statusMessage} (用时${elapsedSeconds}秒)</p>
                             <button id="${type}-download">下载图片</button>
                         `;
 
